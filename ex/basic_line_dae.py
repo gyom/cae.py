@@ -9,14 +9,16 @@ domain = 0.2 + 0.6*numpy.array(sorted(numpy.random.random((N,))))
 image = numpy.array([slope*t for t in domain]) + noise*numpy.random.random((N,))
 line_data = numpy.vstack((domain, image)).T
 
-my_dae = dae.DAE(n_hiddens=1,
+my_dae = dae.DAE(n_hiddens=2,
     W=None,
     c=None,
     b=None,
-    learning_rate=0.01,
+    learning_rate=0.1,
     jacobi_penalty=0.01,
     batch_size=100,
-    epochs=10000)
+    epochs=1000,
+    L1h_penalty=0.01,
+    act_fn_name="rectifier")
 
 my_dae.fit(line_data, verbose=True)
 
@@ -66,7 +68,7 @@ for i in numpy.arange(0,grid_points.shape[0]):
         else:
             pylab.plot((mu[i,0],mu[i,0]+s*v[0]), (mu[i,1], mu[i,1]+s*v[1]), c='#0a7bc2')
 
-    
+
 for i in numpy.arange(0,grid_points.shape[0]):
     (eigvals, eigvecs) = numpy.linalg.eig(J[i,:,:])
     print "valeurs propres : (%f, %f)" % (eigvals[0], eigvals[1])
@@ -83,7 +85,9 @@ for i in numpy.arange(0,grid_points.shape[0]):
 
 pylab.show()
 
-quit()
+
+
+
 
 #X = grid_points[:,0]
 #Y = grid_points[:,1]
