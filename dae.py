@@ -25,7 +25,9 @@ class DAE(object):
                  learning_rate=0.001,
                  jacobi_penalty=0.1,
                  batch_size=10,
-                 epochs=200):
+                 epochs=200,
+                 act_fn_name="sigmoid",
+                 L1h_penalty=0.):
         """
         Initialize a DAE.
         
@@ -49,6 +51,8 @@ class DAE(object):
             Number of examples to use per gradient update
         epochs : int, optional
             Number of epochs to perform during learning
+        act_fn_name: string, optional
+            either 'sigmoid' or 'rectifier'
         """
         self.n_hiddens = n_hiddens
         self.W = W
@@ -58,6 +62,12 @@ class DAE(object):
         self.jacobi_penalty = jacobi_penalty
         self.batch_size = batch_size
         self.epochs = epochs
+        if act_fn_name=='sigmoid':
+            self.act_fn=self._sigmoid
+            self.act_fn_derivative=self._sigmoid_derivative
+        elif act_fn_name=='rectifier':
+            self.act_fn=self._rectifier
+            self.act_fn_derivative=self._rectifier_derivative
         
     def _sigmoid(self, x):
         """
@@ -71,8 +81,28 @@ class DAE(object):
         -------
         x_new: array-like, shape (M, N)
         """
-        return 1. / (1. + numpy.exp(-x)) 
-    
+        return 1. / (1. + numpy.exp(-x))
+
+    def _sigmoid_derivative(self,output):
+        return output*(1-output)
+
+    def _rectifier(self, x):
+        """
+        Implements the rectifier activation function.
+        
+        Parameters
+        ----------
+        x: array-like, shape (M, N)
+
+        Returns
+        -------
+        x_new: array-like, shape (M, N)
+        """
+        return x*(x>0)
+
+    def _rectifier_derivative(self,output):
+        return numpy.sign(output)
+
     def encode(self, x):
         """
         Computes the hidden code for the input {\bf x}.
@@ -85,7 +115,7 @@ class DAE(object):
         -------
         h: array-like, shape (n_examples, n_hiddens)
         """
-        return self._sigmoid(numpy.dot(x, self.W) + self.c)
+        return self.act_fn(numpy.dot(x, self.W) + self.c)
     
     def decode(self, h):
         """
@@ -129,7 +159,7 @@ class DAE(object):
         """
         h = self.encode(x)
         
-        return (h * (1 - h))[:, :, None] * self.W.T
+        return self.act_fn_derivative(h)[:, :, None] * self.W.T
     
     def reconstruction_jacobian(self, x):
         """
@@ -146,7 +176,7 @@ class DAE(object):
         h = self.encode(x)
         r = self.decode(h)
 
-        return (r * (1-r))[:,:,None] * self.W * (h * (1 - h))[:, :, None] * self.W.T
+        return (r * (1-r))[:,:,None] * self.W * self.act_fn_derivative(h)[:, :, None] * self.W.T
     
     def sample(self, x, sigma=1):
         """
@@ -164,7 +194,7 @@ class DAE(object):
         """
         h = self.encode(x)
         
-        s = h * (1. - h)
+        s = self.act_fn_derivative(h)
         
         JJ = numpy.dot(self.W.T, self.W) * s[:, None, :] * s[:, :, None]
         
@@ -225,10 +255,13 @@ class DAE(object):
             dedr = 2*(r-x)
 
             a = r*(1-r)
-            b = h*(1-h)
+            b = self.act_fn_derivative(h)
             
             od = a * dedr
-            oe = b * numpy.dot(od, self.W)
+            if self.L1h_penalty>0:
+                oe = b * (self.L1h_penalty+numpy.dot(od, self.W))
+            else:
+                oe = b * numpy.dot(od, self.W)
 
             gW = x[ :, :, None]  * oe[ :, None, : ] + od[:, :, None]*h[:, None, :]
             # gW = x[ :, :, None]  * oe[ :, None, : ]
@@ -236,9 +269,9 @@ class DAE(object):
             return gW.mean(0), od.mean(0), oe.mean(0)
 
         W_rec, b_rec, c_rec = _fit_reconstruction()
-        self.W -= self.learning_rate * (W_rec )
-        self.c -= self.learning_rate * (c_rec )
+        self.W -= self.learning_rate * W_rec 
         self.b -= self.learning_rate * b_rec
+        self.c -= self.learning_rate * c_rec 
 
 
     def fit(self, X, verbose=False):
@@ -287,7 +320,7 @@ class DAE(object):
             r0 = self.reconstruct(X[i,:])
             h0 = self.encode(X[i,:])
             A = numpy.diag(r0*(1-r0))
-            B = numpy.diag(h0*(1-h0))
+            B = numpy.diag(self.act_fn_derivative(h0))
             J = numpy.dot(numpy.dot(numpy.dot(self.W,B),self.W.T),A)
             #
             if return_rJ:
