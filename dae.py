@@ -27,7 +27,9 @@ class DAE(object):
                  batch_size=10,
                  epochs=200,
                  act_fn_name="sigmoid",
-                 L1h_penalty=0.):
+                 L1h_penalty=0.,
+                 prob_large_noise=0.2,
+                 large_noise_sigma=0.5):
         """
         Initialize a DAE.
         
@@ -69,6 +71,8 @@ class DAE(object):
             self.act_fn=self._rectifier
             self.act_fn_derivative=self._rectifier_derivative
         self.L1h_penalty = L1h_penalty
+        self.prob_large_noise = prob_large_noise
+        self.large_noise_sigma = large_noise_sigma
     
     def _sigmoid(self, x):
         """
@@ -240,8 +244,9 @@ class DAE(object):
         x: array-like, shape (n_examples, n_inputs)
         """
         jacobi_penalty = self.jacobi_penalty
-        if numpy.random.uniform() < 0.2:
-            jacobi_penalty = 0.5
+        
+        if numpy.random.uniform() < self.prob_large_noise:
+            jacobi_penalty = self.large_noise_sigma
         perturbed_x = x + numpy.random.normal(scale=jacobi_penalty, size=x.shape)
         
         def _fit_reconstruction():
