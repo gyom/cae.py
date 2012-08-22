@@ -6,10 +6,11 @@ N = 1000
 slope = 1.0
 noise = 0.01
 domain = 0.2 + 0.6*numpy.array(sorted(numpy.random.random((N,))))
-image = numpy.array([slope*t for t in domain]) + noise*numpy.random.random((N,))
+#image = numpy.array([slope*t for t in domain]) + noise*numpy.random.random((N,))
+image = 0.5 + 0.3*numpy.sin((domain-0.2)*2.6*numpy.pi) + numpy.random.normal(0, noise, domain.shape)
 line_data = numpy.vstack((domain, image)).T
 
-my_dae = dae.DAE(n_hiddens=2,
+my_dae = dae.DAE(n_hiddens=32,
     W=None,
     c=None,
     b=None,
@@ -18,7 +19,8 @@ my_dae = dae.DAE(n_hiddens=2,
     batch_size=100,
     epochs=1000,
     L1h_penalty=0.01,
-    act_fn_name="rectifier")
+    act_fn_name="rectifier", 
+    mu_scale=0.1)
 
 my_dae.fit(line_data, verbose=True)
 
@@ -69,6 +71,12 @@ for i in numpy.arange(0,grid_points.shape[0]):
             pylab.plot((mu[i,0],mu[i,0]+s*v[0]), (mu[i,1], mu[i,1]+s*v[1]), c='#0a7bc2')
 
 
+
+for i in numpy.arange(0,grid_points.shape[0]):
+    pylab.subplot(133)
+    pylab.scatter(r[i,0], r[i,1], c='#000000')
+
+
 for i in numpy.arange(0,grid_points.shape[0]):
     (eigvals, eigvecs) = numpy.linalg.eig(J[i,:,:])
     print "valeurs propres : (%f, %f)" % (eigvals[0], eigvals[1])
@@ -89,11 +97,30 @@ pylab.show()
 
 
 
-#X = grid_points[:,0]
-#Y = grid_points[:,1]
-#U = mu[:,0] -  grid_points[:,0]
-#V = mu[:,1] -  grid_points[:,1]
-#pylab.quiver(X, Y, U, V, units='x', scale=1.0)
+#grid_points = numpy.array([(x,y) for x in numpy.arange(0, 1.00001, 0.1) for y in numpy.arange(0, 1.00001, 0.1)])
+grid_points = numpy.array([(x,y) for x in numpy.arange(-1, 2, 0.1) for y in numpy.arange(-1, 2, 0.1)])
+#grid_points = numpy.array([(x,y) for x in numpy.arange(0.4, 0.61, 0.01) for y in numpy.arange(0.4, 1.00001, 0.01)])
+(mu, C) = my_dae.mu_C_for_quadratic_loss(grid_points)
+(r, J)  = my_dae.mu_C_for_quadratic_loss(grid_points, return_rJ=True)
+
+reconstructed_grid_points = my_dae.reconstruct(grid_points)
+reconstructed_line_data = my_dae.reconstruct(line_data)
+
+
+pylab.subplot(121)
+X = grid_points[:,0]
+Y = grid_points[:,1]
+U = reconstructed_grid_points[:,0] -  grid_points[:,0]
+V = reconstructed_grid_points[:,1] -  grid_points[:,1]
+pylab.quiver(X, Y, U, V)
+
+pylab.subplot(122)
+X = grid_points[:,0]
+Y = grid_points[:,1]
+U = mu[:,0] -  grid_points[:,0]
+V = mu[:,1] -  grid_points[:,1]
+pylab.quiver(X, Y, U, V)
+pylab.show()
 
 #reconstruction_data = my_dae.reconstruct(line_data)
 

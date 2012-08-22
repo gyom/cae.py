@@ -29,7 +29,8 @@ class DAE(object):
                  act_fn_name="sigmoid",
                  L1h_penalty=0.,
                  prob_large_noise=0.2,
-                 large_noise_sigma=0.5):
+                 large_noise_sigma=0.5,
+                 mu_scale=1.0):
         """
         Initialize a DAE.
         
@@ -55,6 +56,7 @@ class DAE(object):
             Number of epochs to perform during learning
         act_fn_name: string, optional
             either 'sigmoid' or 'rectifier'
+        mu_scale : prevents the mu from overshooting
         """
         self.n_hiddens = n_hiddens
         self.W = W
@@ -73,6 +75,7 @@ class DAE(object):
         self.L1h_penalty = L1h_penalty
         self.prob_large_noise = prob_large_noise
         self.large_noise_sigma = large_noise_sigma
+        self.mu_scale = mu_scale
     
     def _sigmoid(self, x):
         """
@@ -334,7 +337,7 @@ class DAE(object):
                 results_cov[i,:,:] = J
             else:
                 Z = numpy.linalg.inv(numpy.eye(len(r0)) - J)
-                mu = X[i,:] + numpy.dot(Z,r0-X[i,:])
+                mu = X[i,:] + self.mu_scale*numpy.dot(Z,r0-X[i,:])
                 C = numpy.dot(J, Z)
                 results_mu[i,:] = mu
                 results_cov[i,:,:] = C
