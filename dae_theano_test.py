@@ -3,7 +3,7 @@
 import dae_theano
 #dae_theano = reload(dae_theano)
 mydae = dae_theano.DAE(n_hiddens=80,
-                       epochs=10000,
+                       epochs=100,
                        learning_rate=0.001,
                        prob_large_noise=0.0,
                        jacobi_penalty=0.1,
