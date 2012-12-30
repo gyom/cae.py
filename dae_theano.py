@@ -88,6 +88,11 @@ class DAE(object):
                 self.logging[k]['mean_abs_grad_W'] = []
                 self.logging[k]['var_abs_grad_W'] = []
 
+        # keep the best parameters
+        self.best_noisy_params = {}
+        self.best_noiseless_params = {}
+        # will have fields 'W', 'b', 'c', 'loss'
+
 
         # then setup the theano functions once
         self.theano_setup()
@@ -195,6 +200,16 @@ class DAE(object):
         self.c = numpy.zeros(self.n_hiddens)
         self.b = numpy.zeros(d)
 
+    def set_params_to_best_noisy(self):
+        self.W = self.best_noisy_params['W']
+        self.b = self.best_noisy_params['b']
+        self.c = self.best_noisy_params['c']
+
+    def set_params_to_best_noiseless(self):
+        self.W = self.best_noiseless_params['W']
+        self.b = self.best_noiseless_params['b']
+        self.c = self.best_noiseless_params['c']
+
     def fit(self, X, verbose=False):
         """
         Fit the model to the data X.
@@ -293,6 +308,13 @@ class DAE(object):
             self.logging['noisy']['mean_abs_grad_W'].append( numpy.abs(grad_W).mean() )
             self.logging['noisy']['var_abs_grad_W'].append( numpy.abs(grad_W).var() )
 
+        # if there is no key, or if we're beating the current best, replace the value
+        if ((not self.best_noisy_params.has_key('loss')) or
+            self.logging['noisy']['mean_abs_loss'][-1] < self.best_noisy_params['loss']):
+                self.best_noisy_params['loss'] = self.logging['noisy']['mean_abs_loss'][-1]
+                self.best_noisy_params['W'] = self.W
+                self.best_noisy_params['b'] = self.b
+                self.best_noisy_params['c'] = self.c
 
         # 'noiseless'
         noiseless_all_losses, noiseless_all_abs_act, noiseless_all_abs_ract = self.model_loss(X, useNoise=False)
@@ -310,6 +332,15 @@ class DAE(object):
             grad_W, grad_b, grad_c = self.one_step_grad_descent(X, perform_update = False, jacobi_penalty_override = 0.0)
             self.logging['noiseless']['mean_abs_grad_W'].append( numpy.abs(grad_W).mean() )
             self.logging['noiseless']['var_abs_grad_W'].append( numpy.abs(grad_W).var() )
+
+        # if there is no key, or if we're beating the current best, replace the value
+        if ((not self.best_noiseless_params.has_key('loss')) or
+            self.logging['noiseless']['mean_abs_loss'][-1] < self.best_noiseless_params['loss']):
+                self.best_noiseless_params['loss'] = self.logging['noiseless']['mean_abs_loss'][-1]
+                self.best_noiseless_params['W'] = self.W
+                self.best_noiseless_params['b'] = self.b
+                self.best_noiseless_params['c'] = self.c
+
 
         if verbose:
             print "  -- Exact --"
